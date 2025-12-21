@@ -5,21 +5,23 @@ class Graph {
     public static Scanner in = new Scanner(System.in);
     public static PrintStream out = System.out;
 
-    private List<String> lst;
+    private String[] lst;
+    private int size;
 
-    public Graph(List<String> edges) {
-        this.lst = new ArrayList<>();
+    public Graph() {
+        this.lst = new String[1000000];
+        this.size = 0;
     }
 
     //Вывод всех ребер графа
     @Override
     public String toString() {
-        if(lst.isEmpty()) {
+        if(size == 0) {
             return "Граф не содержит рёбер.";
         }
         String out1 = "";
-        for(String edge : lst) {
-            out1 += edge + "\n";
+        for(int i = 0; i < size; i++) {
+            out1 += lst[i] + "\n";
         }
         return out1;
     }
@@ -27,23 +29,29 @@ class Graph {
     //Добавление ребер
     public void add(int start, int end) {
         String edge = start + " -> " + end;
-        if(!lst.contains(edge)) {
-            lst.add(edge);
+        // Проверка на дубликаты
+        for(int i = 0; i < size; i++) {
+            if(lst[i].equals(edge)) {
+                return;
+            }
         }
+        //Добавление
+        lst[size] = edge;
+        size++;
     }
 
     //Вывод вершин по убыванию номера
     public String printVertexes() {
         Set<Integer> vertexes = new HashSet<>();
         //Извлечение вершин из строковой записи
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
             vertexes.add(Integer.parseInt(parts[0]));
             vertexes.add(Integer.parseInt(parts[1]));
         }
         //Сортировка
-        List<Integer> result = new ArrayList<>(vertexes);
-        result.sort(Collections.reverseOrder());
+        Integer[] result = vertexes.toArray(new Integer[0]);
+        Arrays.sort(result, Collections.reverseOrder());
         //Вывод
         String out1 = "";
         for(int i : result) {
@@ -54,251 +62,222 @@ class Graph {
 
     //Вершины с входящими рёбрами больше заданного числа
     public String VertexesMoreN(int n) {
-        //Массив всех вершин, с повторами
-        int[] lst_ver = new int[lst.size()];
-        int cnt = 0;
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
-            lst_ver[cnt] = Integer.parseInt(parts[1]);
-            cnt++;
+        if(size == 0) return "Нет таких вершин";
+        //Создаем Map для подсчета входящих ребер
+        Map<Integer, Integer> incomingCount = new HashMap<>();
+
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
+            int to = Integer.parseInt(parts[1]);
+            incomingCount.put(to, incomingCount.getOrDefault(to, 0) + 1);
         }
-        Arrays.sort(lst_ver);
-        int id = lst_ver[0];
-        cnt = 1;
-        String out1 = "";
-        boolean fg = true;
-        //Заполнение строки с вершинами, которые больше n
-        for(int i = 1; i < lst_ver.length; i++) {
-            if(lst_ver[i] == id) cnt++;
-            else {
-                if(cnt > n) {
-                    out1 += id + " ";
-                    fg = false;
-                }
-                id = lst_ver[i];
-                cnt = 1;
+        //Заполняем массив вершинами с количеством входящих ребер > n
+        Integer[] tempResult = new Integer[incomingCount.size()];
+        int count = 0;
+        for(Map.Entry<Integer, Integer> entry : incomingCount.entrySet()) {
+            if(entry.getValue() > n) {
+                tempResult[count++] = entry.getKey();
             }
         }
-        if(fg) return "Нет таких вершин";
+        if(count == 0) return "Нет таких вершин";
+        //Создаем массив нужного размера
+        Integer[] result = new Integer[count];
+        for(int i = 0; i < count; i++) {
+            result[i] = tempResult[i];
+        }
+        Arrays.sort(result);
+        //Вывод
+        String out1 = "";
+        for(int i = 0; i < count; i++) {
+            out1 += result[i] + " ";
+        }
         return out1;
     }
 
     //Удаление ребра
     public boolean deleteReb(int start, int end) {
         String edge = start + " -> " + end;
-        boolean fg = lst.remove(edge);
-        return fg;
+        for(int i = 0; i < size; i++) {
+            if(lst[i].equals(edge)) {
+                //Сдвиг элементов
+                for(int j = i; j < size - 1; j++) lst[j] = lst[j + 1];
+                size--;
+                return true;
+            }
+        }
+        return false;
     }
 
     //Удаление вершины
     public boolean deleteVer(int id) {
-        List<String> copy_lst = new ArrayList<>();
         boolean fg = false;
-        //Добавляем в список пары, которые надо удалить
-        for(String edge : lst) {
-            String[] parts = edge.split(" -> ");
+        int i = 0;
+        while(i < size) {
+            String[] parts = lst[i].split(" -> ");
             int from = Integer.parseInt(parts[0]);
             int to = Integer.parseInt(parts[1]);
-
             if(from == id || to == id) {
-                copy_lst.add(edge);
+                //Удаление элемента
+                for(int j = i; j < size - 1; j++) {
+                    lst[j] = lst[j + 1];
+                }
+                size--;
                 fg = true;
             }
+            else i++;
         }
-        // Удаляем найденные рёбра
-        lst.removeAll(copy_lst);
         return fg;
     }
 
-    //Удаление вершин с наименьшим количеством входящих рёбер (без учёта петель)
+    //Удаление вершин с наибольшим количеством входящих рёбер
     public boolean deleteMinVer() {
-        if(lst.isEmpty()) return false;
-        int[] lst_ver = new int[lst.size()];
-        int cnt = 0;
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
-            lst_ver[cnt] = Integer.parseInt(parts[1]);
-            cnt++;
+        if(size == 0) return false;
+        //Подсчет входящих ребер
+        Map<Integer, Integer> lst_vr = new HashMap<>();
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
+            int to = Integer.parseInt(parts[1]);
+            lst_vr.put(to, lst_vr.getOrDefault(to, 0) + 1);
         }
-        Arrays.sort(lst_ver);
-        int[] lst_vr = new int[cnt];
-        int[] lst_vr2 = new int[cnt];
-        int id = lst_ver[0];
-        cnt = 1;
-        //Заполнение массива всех вершин и количества в них вхождений
-        for(int i = 1; i < lst_ver.length; i++) {
-            if(lst_ver[i] == id) cnt++;
-            else {
-                lst_vr[i-1] = cnt;
-                lst_vr2[i-1] = id;
-                id = lst_ver[i];
-                cnt = 1;
-            }
-        }
-        //нахождение индекса вершины с большим вхождением
+        if(lst_vr.isEmpty()) return false;
+        //Находим вершину с максимальным количеством входящих ребер
         int max_id = -1;
-        int max_count = -1;
-        for(int i = 0; i < lst_vr.length; i++) {
-            if(lst_vr[i] > max_count) {
-                max_id = i;
-                max_count = lst_vr[i];
+        int max_cnt = -1;
+        for(Map.Entry<Integer, Integer> entry : lst_vr.entrySet()) {
+            if(entry.getValue() > max_cnt) {
+                max_cnt = entry.getValue();
+                max_id = entry.getKey();
             }
         }
-        deleteVer(lst_vr2[max_id]);
-        return true;
-    }
-
-    //Подсчёт количества компонент связности
-    public int countComp() {
-        if(lst.isEmpty()) return 0;
-        return searchComp().size();
+        return deleteVer(max_id);
     }
 
     //Поиск компонент связности
     public Set<Set<Integer>> searchComp() {
+        //Создаем список смежности (неориентированный граф)
         Map<Integer, Set<Integer>> groups = new HashMap<>();
 
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
             int a = Integer.parseInt(parts[0]);
             int b = Integer.parseInt(parts[1]);
-            //Объединяем группы вершин
-            Set<Integer> group = new HashSet<>();
-            group.add(a);
-            group.add(b);
-            groups.merge(a, group, (old, n) -> {old.addAll(n); return old;});
-            groups.merge(b, groups.get(a), (old, n) -> {old.addAll(n); return old;});
+            groups.computeIfAbsent(a, k -> new HashSet<>()).add(b);
+            groups.computeIfAbsent(b, k -> new HashSet<>()).add(a);
         }
-        //Собираем уникальные группы
-        Set<Set<Integer>> result = new HashSet<>(groups.values());
+
+        Set<Integer> visited = new HashSet<>();
+        Set<Set<Integer>> result = new HashSet<>();
+
+        for(Integer i : groups.keySet()) {
+            if(!visited.contains(i)) {
+                Set<Integer> component = new HashSet<>();
+                dfs(i, groups, visited, component);
+                result.add(component);
+            }
+        }
         return result;
+    }
+
+    //Для группировки вершин
+    private void dfs(int vertex, Map<Integer, Set<Integer>> groups,
+                     Set<Integer> visited, Set<Integer> component) {
+        //component - группа обосбленных вершин
+        visited.add(vertex);
+        component.add(vertex);
+
+        for(int neighbor : groups.getOrDefault(vertex, new HashSet<>())) {
+            if(!visited.contains(neighbor)) {
+                dfs(neighbor, groups, visited, component);
+            }
+        }
     }
 
     //Вершины, достижимые за 2 хода
     public Set<Integer> motionVer2(int startId) {
-        Set<Integer> reachable = new HashSet<>();
-        //прямые соседи
-        Set<Integer> firstStep = new HashSet<>();
-        for(String edge : lst) {
-            String[] parts = edge.split(" -> ");
-            int x1 = Integer.parseInt(parts[0]);
-            int x2 = Integer.parseInt(parts[1]);
-            if(x1 == startId) {
-                firstStep.add(x2);
-            }
-        }
-
-        //соседи соседей
-        for(int i : firstStep) {
-            for(String edge : lst) {
-                String[] parts = edge.split(" -> ");
-                int from = Integer.parseInt(parts[0]);
-                int to = Integer.parseInt(parts[1]);
-
-                if(from == i) {
-                    reachable.add(to);
-                }
-            }
-        }
-
-        // Добавляем вершины первого шага (достижимые за 1 ход)
-        reachable.addAll(firstStep);
-
-        // Убираем стартовую вершину из результата
-        reachable.remove(startId);
-
-        return reachable;
+        return motionVerN(startId, 2);
     }
 
     //Вершины, достижимые за заданное количество ходов
     public Set<Integer> motionVerN(int start, int n) {
-        // Если количество шагов неположительное, возвращаем пустое множество
-        if(n <= 0) {
-            return new HashSet<>();
-        }
+        if(n <= 0) return new HashSet<>();
 
-        // Создаем список смежности (ориентированный)
+        // Создаем список смежности
         Map<Integer, Set<Integer>> lst_vr = new HashMap<>();
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
-            int x1 = Integer.parseInt(parts[0]);
-            int x2 = Integer.parseInt(parts[1]);
-            lst_vr.computeIfAbsent(x1, k -> new HashSet<>()).add(x2);
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
+            int a = Integer.parseInt(parts[0]);
+            int b = Integer.parseInt(parts[1]);
+            lst_vr.computeIfAbsent(a, k -> new HashSet<>()).add(b);
         }
 
-        //Множество для хранения результата
+        Set<Integer> current = new HashSet<>();
+        current.add(start);
         Set<Integer> result = new HashSet<>();
 
-        recursionSossed(start, n, lst_vr, result);
-        // Убираем стартовую вершину из результата
+        for(int i = 1; i <= n; i++) {
+            Set<Integer> next = new HashSet<>();
+            for(int j : current) {
+                Set<Integer> neighbors = lst_vr.getOrDefault(j, new HashSet<>());
+                next.addAll(neighbors);
+            }
+            result.addAll(next);
+            current = next;
+            if(current.isEmpty()) break;
+        }
         result.remove(start);
-
         return result;
-    }
-
-    //рекурсия для поиска соседей
-    private void recursionSossed(int start, int step,
-                                 Map<Integer, Set<Integer>> edge,
-                                 Set<Integer> result) {
-        if(step == 0) {
-            return;
-        }
-        //Соседи текущей вершины, если их нет, то пустое множество
-        Set<Integer> ver = edge.getOrDefault(start, new HashSet<>());
-        //Добавление всех соседей в результат
-        for(int i : ver) {
-            result.add(i);
-            recursionSossed(i, step - 1, edge, result);
-        }
     }
 
     //Сложение двух графов
     public Graph sum(Graph other) {
-        //Создает новый граф для результата
-        Graph result = new Graph(new ArrayList<>());
-        //Копирует все ребра из текущего графа
-        for(String edge : this.lst) {
-            result.lst.add(edge);
+        Graph result = new Graph();
+        //Копируем все ребра из текущего графа
+        for(int i = 0; i < this.size; i++) {
+            String[] parts = this.lst[i].split(" -> ");
+            result.add(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
         }
-        //Добавляем ребра из второго графа, исключая дубликаты
+        //Добавляем ребра из второго графа
         if(other != null) {
-            for(String i : other.lst) {
-                if(!result.lst.contains(i)) {
-                    result.lst.add(i);
-                }
+            for(int i = 0; i < other.size; i++) {
+                String[] parts = other.lst[i].split(" -> ");
+                result.add(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
             }
         }
         return result;
     }
 
-    //Проверка на полноту графа
+    //Проверка на полноту
     public boolean isComplete() {
         // Получаем все вершины графа
         Set<Integer> lst_vr = new HashSet<>();
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
             lst_vr.add(Integer.parseInt(parts[0]));
             lst_vr.add(Integer.parseInt(parts[1]));
         }
+        //Если вершин меньше 2, граф полный
+        if(lst_vr.size() < 2) return true;
+        //Преобразуем Set в массив
+        int vertex_cnt = lst_vr.size();
+        int[] lst_vertices = new int[vertex_cnt];
+        int index = 0;
 
-        // Если вершин меньше 2, граф полный (нет пар для проверки)
-        if(lst_vr.size() < 2) {
-            return true;
-        }
+        for(Integer vertex : lst_vr) lst_vertices[index++] = vertex;
+        // Проверяем наличие всех возможных ребер
+        for(int i = 0; i < vertex_cnt; i++) {
+            for(int j = 0; j < vertex_cnt; j++) {
+                if(i != j) {
+                    String edge = lst_vertices[i] + " -> " + lst_vertices[j];
+                    boolean found = false;
 
-        // Проверяем наличие всех возможных ребер между различными вершинами
-        List<Integer> lst_vr_copy = new ArrayList<>(lst_vr);
-        for(int i = 0; i < lst_vr_copy.size(); i++) {
-            for(int j = 0; j < lst_vr_copy.size(); j++) {
-                if(i != j) { // Исключаем петли
-                    int from = lst_vr_copy.get(i);
-                    int to = lst_vr_copy.get(j);
-                    String x = from + " -> " + to;
-
-                    //Если отсутствует ребро между различными вершинами, граф не полный
-                    if(!lst.contains(x)) {
-                        return false;
+                    //Поиск ребра
+                    for(int k = 0; k < size; k++) {
+                        if(lst[k].equals(edge)) {
+                            found = true;
+                            break;
+                        }
                     }
+                    if(!found) return false;
                 }
             }
         }
@@ -307,16 +286,14 @@ class Graph {
 
     //Проверка на пустоту графа
     public boolean isEmpty() {
-        return lst.isEmpty();
+        return size == 0;
     }
 
     //Проверка на наличие вершин, соединённых только с собой
     public boolean isRing() {
-        if(lst.isEmpty()) {
-            return false;
-        }
-        for(String i : lst) {
-            String[] parts = i.split(" -> ");
+        if(size == 0) return false;
+        for(int i = 0; i < size; i++) {
+            String[] parts = lst[i].split(" -> ");
             int x1 = Integer.parseInt(parts[0]);
             int x2 = Integer.parseInt(parts[1]);
             if(x1 != x2) return false;
@@ -324,3 +301,5 @@ class Graph {
         return true;
     }
 }
+
+
